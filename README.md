@@ -10,6 +10,7 @@ This plugin is the successor of the [Fontselect jQuery plugin](https://github.co
 
 ## FORK
 
-Dieser Fork fügt Adobe Fonts zum Font Picker hinzu.
+Adobe Fonts Support.
 
 - fügt Fonts eines einzelnen Adobe Kits hinzu.
+  [nicht alle Adobe Fonts]
