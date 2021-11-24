@@ -5499,6 +5499,9 @@
 				} else if (false !== options.googleFonts) {
 					// If user did not supply a subset of Google Fonts, list them all
 					options.googleFonts = __googleFonts;
+
+					// TODO REMOVE WHEN CODEBLOCK BELOW DONE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+					options.adobeFonts = __adobeFonts;
 				}
 
 				// TODO
@@ -5552,6 +5555,8 @@
 				 * @param {string} type Font type, either 'google' or 'local'.
 				 * @param {string} font Font family name. F.e: 'Chakra', 'Zilla Slab'.
 				 */
+
+				// TODO INSERT ADOBE FONT INTO HEAD
 				loadFont: function (type, font) {
 					if (fontsLoaded[font]) {
 						return;
@@ -6118,7 +6123,8 @@
 
 						this.$modal.css("display", "flex");
 
-						this.getFavorites(); // List favorites & recents
+						// TODO DISABLED FAVOURITES
+						//this.getFavorites(); // List favorites & recents
 
 						var fontSpec = this.$original.val();
 						if (fontSpec) {
