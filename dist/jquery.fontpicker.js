@@ -142,7 +142,12 @@
 
 		var __adobeFonts = {
 			// This list was last updated on December 8, 2020
-			Testfont: {
+			TestFont: {
+				category: "sans-serif",
+				variants: "400,400i",
+				subsets: "latin",
+			},
+			TestFont2: {
 				category: "sans-serif",
 				variants: "400,400i",
 				subsets: "latin",
@@ -5523,9 +5528,28 @@
           options.googleFonts = googleFonts;
         } else if (false !== options.googleFonts) {
           // If user did not supply a subset of Google Fonts, list them all
-          options.googleFonts = __googleFonts;
+
+          // creating a font object containing 
+          // all fonts to be used
+          options.adobeFonts = __adobeFonts;
 
         } */
+
+				/*  Obect that needs to be genearted for ADOBE
+        
+    var __adobeFonts = {
+      // This list was last updated on December 8, 2020
+      ABeeZee: {
+        category: "sans-serif",
+        variants: "400,400i",
+        subsets: "latin",
+      },
+      Abel: {
+        category: "sans-serif",
+        variants: "400",
+        subsets: "latin",
+      },        
+        */
 
 				if (!options.localFonts) {
 					options.localFonts = [];
@@ -5537,10 +5561,11 @@
 
 				this.dictionary = dictionaries[options.lang];
 
+				// TODO FONTS ARRAY
 				this.allFonts = {
 					google: options.googleFonts,
 					local: options.localFonts,
-					adobe: "Adobe fonts",
+					adobe: options.adobeFonts,
 				};
 				this.options = options;
 				this.$original = $(original);
@@ -5556,7 +5581,7 @@
 				 * @param {string} font Font family name. F.e: 'Chakra', 'Zilla Slab'.
 				 */
 
-				// TODO INSERT ADOBE FONT INTO HEAD
+				// TODO INSERT ADOBE FONTS INTO HEAD
 				loadFont: function (type, font) {
 					if (fontsLoaded[font]) {
 						return;
@@ -5572,6 +5597,8 @@
 										" from " +
 										url
 								);
+
+							// TODO komplettes Kit Css einfügen
 							var url =
 								"https://fonts.googleapis.com/css?family=" +
 								font.replace(/ /g, "+") +
@@ -6341,6 +6368,7 @@
 						// TODO Fonts hinzufügen
 						$frag.append($li[0]);
 						for (fontFamily in this.options.adobeFonts) {
+							console.log("fontFamily:", fontFamily);
 							append("adobe", fontFamily);
 						}
 					}
@@ -6355,6 +6383,7 @@
 
 						$frag.append($li[0]);
 						for (fontFamily in this.options.googleFonts) {
+							//console.log("fontFamily:", fontFamily);
 							append("google", fontFamily);
 						}
 					}
@@ -6626,6 +6655,9 @@
 			return returnVal !== undefined ? returnVal : this; // Preserve chainablility
 		}
 
+		// https://stackoverflow.com/a/2678210
+		// each is from jquery
+		// https://api.jquery.com/jquery.each/
 		return this.each(function () {
 			if (!$.data(this, "plugin_" + pluginName)) {
 				// If options exist, merge them
