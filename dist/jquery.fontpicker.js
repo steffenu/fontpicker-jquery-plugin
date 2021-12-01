@@ -8,6 +8,10 @@
  * @url https://github.com/av01d/fontpicker-jquery-plugin
  */
 
+var full_adobe_object = {};
+var global_kit_id = 0;
+var global_kit_object = {};
+
 (function ($) {
 	var pluginName = "fontpicker";
 	var fontsLoaded = {};
@@ -140,19 +144,22 @@
 				expires;
 		};
 
-		var __adobeFonts = {
-			// This list was last updated on December 8, 2020
-			TestFont: {
-				category: "sans-serif",
-				variants: "400,400i",
-				subsets: "latin",
-			},
-			TestFont2: {
-				category: "sans-serif",
-				variants: "400,400i",
-				subsets: "latin",
-			},
-		};
+		/*     var __adobeFonts = {
+			 // This list was last updated on December 8, 2020
+			 TestFont: {
+				 category: "sans-serif",
+				 variants: "400,400i",
+				 subsets: "latin",
+			 },
+			 TestFont2: {
+				 category: "sans-serif",
+				 variants: "400,400i",
+				 subsets: "latin",
+			 },
+		 }; */
+
+		// Gets Populated via Api Request (is very slow atm :D)
+		var __adobeFonts = {};
 
 		var __googleFonts = {
 			// This list was last updated on December 8, 2020
@@ -5486,70 +5493,36 @@
 				},
 			},
 		}; // End settings
-
+		console.log("googleFonts vorher:", __googleFonts);
 		var Fontpicker = (function () {
 			function Fontpicker(original, options) {
-				if (options.googleFonts && Array.isArray(options.googleFonts)) {
-					// User supplied an array of Google fonts.
-					var googleFonts = {},
-						fontFamily;
-					for (var f = 0; f < options.googleFonts.length; f++) {
-						// f = 1 bsp
-						fontFamily = options.googleFonts[f];
+				// ALL Google Fonts in Object
+				options.googleFonts = __googleFonts;
+				console.log("__googleFonts nacher:", __googleFonts);
 
-						//googleFonts[1] = __googleFonts[sonmefont];
-						googleFonts[fontFamily] = __googleFonts[fontFamily];
-					}
-					options.googleFonts = googleFonts;
-				} else if (false !== options.googleFonts) {
-					// If user did not supply a subset of Google Fonts, list them all
-					options.googleFonts = __googleFonts;
-
-					// TODO REMOVE WHEN CODEBLOCK BELOW DONE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				// ALL Adobe Fonts in Object
+				// TODO Create it from Adobe Kit Response
+				if (Object.keys(full_adobe_object).length === 0) {
 					options.adobeFonts = __adobeFonts;
+				} else {
+					options.adobeFonts = full_adobe_object;
 				}
 
-				// TODO
-				// Modify this Code Block for loading Adobe Fonts
-				// Hier sollen dann alle Fonts Aus dem Aktuellen Kit landen
-				// oder evtl alle Adobe Fonts die es gibt.
-				/*         if (options.googleFonts && Array.isArray(options.googleFonts)) {
-          // User supplied an array of Google fonts.
-          var googleFonts = {},
-            fontFamily;
-          for (var f = 0; f < options.googleFonts.length; f++) {
-
-						// f = 1 bsp
-            fontFamily = options.googleFonts[f];
-						
-            //googleFonts[1] = __googleFonts[sonmefont];
-            googleFonts[fontFamily] = __googleFonts[fontFamily];
-          }
-          options.googleFonts = googleFonts;
-        } else if (false !== options.googleFonts) {
-          // If user did not supply a subset of Google Fonts, list them all
-
-          // creating a font object containing 
-          // all fonts to be used
-          options.adobeFonts = __adobeFonts;
-
-        } */
-
 				/*  Obect that needs to be genearted for ADOBE
-        
-    var __adobeFonts = {
-      // This list was last updated on December 8, 2020
-      ABeeZee: {
-        category: "sans-serif",
-        variants: "400,400i",
-        subsets: "latin",
-      },
-      Abel: {
-        category: "sans-serif",
-        variants: "400",
-        subsets: "latin",
-      },        
-        */
+				 
+		 var __adobeFonts = {
+			 // This list was last updated on December 8, 2020
+			 ABeeZee: {
+				 category: "sans-serif",
+				 variants: "400,400i",
+				 subsets: "latin",
+			 },
+			 Abel: {
+				 category: "sans-serif",
+				 variants: "400",
+				 subsets: "latin",
+			 },        
+				 */
 
 				if (!options.localFonts) {
 					options.localFonts = [];
@@ -5568,9 +5541,47 @@
 					adobe: options.adobeFonts,
 				};
 				this.options = options;
-				this.$original = $(original);
-				this.setupHtml();
-				this.bindEvents();
+				this.$original = jQuery(original);
+
+				// added
+				//this.selectedFont();
+				if (Object.keys(full_adobe_object).length === 0) {
+					(async () => {
+						console.log("##DATEN ANFORDERN###");
+
+						let selected = this.selectedKit();
+						console.log("selected:", selected);
+
+						let FetchSelectedKit = await this.FetchSelectedKit(
+							selected
+						);
+
+						// Kit Object of the currently selected Kit
+						let KitFonts = await this.KitFonts(
+							FetchSelectedKit["kit"]["id"]
+						);
+
+						let families = KitFonts;
+
+						let ConstructAdobeObject =
+							await this.ConstructAdobeObject(families);
+						this.setupHtml();
+						this.bindEvents();
+						console.log("KitFonts:", KitFonts);
+
+						//
+					})();
+				} else {
+					// wenn wir das object schon haben nutze es ...
+					console.log(
+						"## NUTZE  VORHANDENE DATEN###",
+						full_adobe_object
+					);
+					__adobeFonts = full_adobe_object;
+
+					this.setupHtml();
+					this.bindEvents();
+				}
 			}
 
 			Fontpicker.prototype = {
@@ -5580,6 +5591,260 @@
 				 * @param {string} type Font type, either 'google' or 'local'.
 				 * @param {string} font Font family name. F.e: 'Chakra', 'Zilla Slab'.
 				 */
+
+				selectedKit: function () {
+					let selected =
+						document.getElementById("ctrl_selectField")
+							.selectedOptions[0].innerText;
+					return selected;
+				},
+
+				KitIds: async function (
+					url = "http://contao.loc/contao/api/kits"
+				) {
+					const response = await fetch(url, {
+						method: "GET", // *GET, POST, PUT, DELETE, etc.
+					});
+
+					// response.text also return a Promise
+					const text = await response.json();
+					console.log("text:", text);
+
+					return text;
+				},
+
+				SingleKitInfo: async function (kit_id) {
+					// returns a promise
+					let url = `http://contao.loc/contao/api/kits/${kit_id}`;
+					let response = await fetch(url);
+					// returns a promise
+					console.log("fetched a item");
+					return await response.json();
+				},
+
+				KitObjects: async function () {
+					let adobe_kit_ids = await this.KitIds();
+
+					console.log(
+						"KitObjects",
+						"adobe_kit_ids:",
+						adobe_kit_ids["kits"]
+					);
+
+					let kit_ids = adobe_kit_ids["kits"];
+
+					return new Promise(async (resolve, reject) => {
+						Promise.all(
+							kit_ids.map((item) =>
+								this.SingleKitInfo(item["id"])
+							)
+						).then((result) => {
+							let names = [];
+							for (const item of result) {
+								names.push(item);
+							}
+							resolve(names);
+						});
+					});
+				},
+
+				KitObjects: async function (selected) {
+					let adobe_kit_ids = await this.KitIds();
+
+					console.log(
+						"KitObjects",
+						"adobe_kit_ids:",
+						adobe_kit_ids["kits"]
+					);
+
+					let kit_ids = adobe_kit_ids["kits"];
+
+					return new Promise(async (resolve, reject) => {
+						Promise.all(
+							kit_ids.map((item) =>
+								this.SingleKitInfo(item["id"])
+							)
+						).then((result) => {
+							let names = [];
+							for (const item of result) {
+								names.push(item);
+							}
+							resolve(names);
+						});
+					});
+				},
+
+				FetchSelectedKit: async function (selected) {
+					var adobe_kit_ids = await this.KitIds();
+
+					console.log(
+						"SelectedKit",
+						"adobe_kit_ids:",
+						adobe_kit_ids["kits"]
+					);
+
+					let kit_ids = adobe_kit_ids["kits"];
+					let result = await this.KitObjects();
+					return new Promise(async (resolve, reject) => {
+						let names = [];
+						for (const item of result) {
+							if (item["kit"]["name"] == selected) {
+								console.log("matching item:", item);
+								global_kit_id = item["kit"]["id"];
+								global_kit_object = item["kit"];
+
+								resolve(item);
+							}
+						}
+					});
+				},
+
+				KitFonts: async function (kitId) {
+					const response = await fetch(
+						`http://contao.loc/contao/api/kitfonts/${kitId}`,
+						{
+							method: "GET", // *GET, POST, PUT, DELETE, etc.
+						}
+					);
+
+					// response.text also return a Promise
+					const json = await response.json();
+					console.log("Kitfonts:", json);
+
+					return json;
+				},
+
+				FamilyInfo: async function (fontId) {
+					const response = await fetch(
+						`http://contao.loc/contao/api/family/${fontId}`,
+						{
+							method: "GET", // *GET, POST, PUT, DELETE, etc.
+						}
+					);
+
+					// response.text also return a Promise
+					const json = await response.json();
+					console.log("FontInfo:", json);
+
+					return json;
+				},
+
+				VariationList: async function (fontId) {
+					const response = await fetch(
+						`http://contao.loc/contao/api/variations/${fontId}`,
+						{
+							method: "GET", // *GET, POST, PUT, DELETE, etc.
+						}
+					);
+
+					// response.text also return a Promise
+					const json = await response.json();
+					console.log("VariationList:", json);
+
+					return json;
+				},
+
+				VariationInfo: async function (fontId, variationId) {
+					const response = await fetch(
+						`contao/api/kitfontvariation/${fontId}/${variationId}`,
+						{
+							method: "GET", // *GET, POST, PUT, DELETE, etc.
+						}
+					);
+
+					// response.text also return a Promise
+					const json = await response.json();
+					console.log("VariationInfo:", json);
+
+					return json;
+				},
+
+				/* 
+						 TestFont: {
+						 category: "sans-serif",
+						 variants: "400,400i",
+						 subsets: "latin",
+					 },
+				 */
+				ConstructAdobeObject: async function (families) {
+					//AdobeFontsObject = {};
+
+					console.log(
+						"INITIAL #######################",
+						__adobeFonts
+					);
+
+					for (const item of families) {
+						//console.log("item################:", item);
+						let object = {
+							category: "",
+							variants: "",
+							subsets: "latin",
+						};
+
+						// name: "Social Gothic"
+						let FamilyInfo = await this.FamilyInfo(item);
+						console.log(
+							"FONT ##########################   :",
+							FamilyInfo["family"]["name"]
+						);
+						console.log("FamilyInfo:", FamilyInfo);
+						console.log("Family:", FamilyInfo["family"]);
+						let category = FamilyInfo["family"]["css_stack"];
+						object["category"] = category;
+
+						// ["n4", "n5", "n6", "n7"]
+						let VariationList = await this.VariationList(
+							FamilyInfo["family"]["id"]
+						);
+
+						let variants = [];
+
+						for (const item of VariationList) {
+							let VariationInfo = await this.VariationInfo(
+								FamilyInfo["family"]["id"],
+								item
+							);
+							let font_weight =
+								VariationInfo["variation"]["font_weight"];
+
+							// append the letter "i" to the font weight
+							// example 100i
+							if (
+								VariationInfo["variation"]["font_style"] ==
+								"italic"
+							) {
+								variants.push(font_weight + "i");
+							} else {
+								variants.push(font_weight);
+							}
+						}
+						// 400,500,600,700
+						console.log("variants:", variants);
+						let variants_string = variants.join();
+
+						object["variants"] = variants_string;
+
+						//www.samanthaming.com/tidbits/37-dynamic-property-name-with-es6/
+						__adobeFonts[FamilyInfo["family"]["name"]] = object;
+
+						console.log("variants_string:", variants_string);
+						console.log("AdobeFontsObject", __adobeFonts);
+					}
+					// Wenn wir das Object haben setzte es global
+					// damit weitere input felder nicht erneut request machen müssen
+					full_adobe_object = __adobeFonts;
+				},
+
+				GetAdobeCssName: function (font_name) {
+					// Adobe Object already exist as its getting creating before setupHtml
+					for (const item of global_kit_object["families"]) {
+						if (item["name"] == font_name) {
+							// social-gothic
+							return item["css_names"][0];
+						}
+					}
+				},
 
 				// TODO INSERT ADOBE FONTS INTO HEAD
 				loadFont: function (type, font) {
@@ -5605,8 +5870,8 @@
 								":" +
 								this.options.googleFonts[font].variants +
 								"&display=swap";
-							$("head").append(
-								$("<link>", {
+							jQuery("head").append(
+								jQuery("<link>", {
 									href: url,
 									rel: "stylesheet",
 									type: "text/css",
@@ -5630,7 +5895,7 @@
 										document.fonts.add(font);
 									});
 							} else {
-								$("head").append(
+								jQuery("head").append(
 									"<style> @font-face { font-family:'" +
 										font +
 										"'; src:local('" +
@@ -5651,13 +5916,32 @@
 				 * @param {object} $li jQuery list object to extract font spec from (stored in data attributes).
 				 */
 				showSample: function ($li) {
-					$(".fp-sample", this.$element).css({
-						fontFamily: "'" + $li.data("font-family") + "'",
-						fontStyle: $li.data("font-italic")
-							? "italic"
-							: "normal",
-						fontWeight: $li.data("font-weight") || 400,
-					});
+					console.log("li:", $li);
+					console.log("value", $li[0]["attributes"][0].value);
+
+					if ($li[0]["attributes"][0].value == "google") {
+						jQuery(".fp-sample", this.$element).css({
+							fontFamily: "'" + $li.data("font-family") + "'",
+							fontStyle: $li.data("font-italic")
+								? "italic"
+								: "normal",
+							fontWeight: $li.data("font-weight") || 400,
+						});
+					}
+
+					if ($li[0]["attributes"][0].value == "adobe") {
+						let fontname = this.GetAdobeCssName(
+							$li.data("font-family")
+						);
+
+						jQuery(".fp-sample", this.$element).css({
+							fontFamily: "'" + fontname + "'",
+							fontStyle: $li.data("font-italic")
+								? "italic"
+								: "normal",
+							fontWeight: $li.data("font-weight") || 400,
+						});
+					}
 				},
 
 				/**
@@ -5672,7 +5956,10 @@
 						e.stopPropagation();
 					}
 
-					var $activeLi = $("li.fp-active:visible", this.$results);
+					var $activeLi = jQuery(
+						"li.fp-active:visible",
+						this.$results
+					);
 
 					if (
 						(e.keyCode >= 49 && e.keyCode <= 57) ||
@@ -5682,7 +5969,7 @@
 						stop(e);
 						var fw =
 							100 * (e.keyCode - (e.keyCode >= 97 ? 96 : 48));
-						$(
+						jQuery(
 							".fp-pill[data-font-weight=" + fw + "]",
 							$activeLi
 						).trigger("click");
@@ -5692,9 +5979,10 @@
 					switch (e.keyCode) {
 						case 73: // i, italic
 							stop(e);
-							$(".fp-pill.italic:visible", $activeLi).trigger(
-								"click"
-							);
+							jQuery(
+								".fp-pill.italic:visible",
+								$activeLi
+							).trigger("click");
 							break;
 
 						case 38: // Cursor up
@@ -5703,7 +5991,7 @@
 								":not(.fp-divider):visible:first"
 							);
 							if ($prevLi.length == 0) {
-								$prevLi = $(
+								$prevLi = jQuery(
 									"li:not(.fp-divider):visible:last",
 									this.$results
 								);
@@ -5719,7 +6007,7 @@
 								":not(.fp-divider):visible:first"
 							);
 							if ($nextLi.length == 0) {
-								$nextLi = $(
+								$nextLi = jQuery(
 									"li:not(.fp-divider):visible:first",
 									this.$results
 								);
@@ -5731,14 +6019,14 @@
 
 						case 13: // Enter
 							stop(e);
-							$("li.fp-active", this.$results)
+							jQuery("li.fp-active", this.$results)
 								.find("button.apply")
 								.trigger("click");
 							break;
 
 						case 27: // Esc
 							stop(e);
-							$(".fp-close", this.$modal).trigger("click");
+							jQuery(".fp-close", this.$modal).trigger("click");
 							break;
 					}
 				},
@@ -5750,8 +6038,10 @@
 				 * @param {object} el Element that received the event.
 				 */
 				mouseEnter: function (e, el) {
-					var $li = $(el);
-					$("li.fp-hover", this.$results).removeClass("fp-hover");
+					var $li = jQuery(el);
+					jQuery("li.fp-hover", this.$results).removeClass(
+						"fp-hover"
+					);
 					$li.addClass("fp-hover");
 
 					this.loadFont(
@@ -5760,7 +6050,7 @@
 					);
 					this.showSample($li);
 				},
-
+				// TODO
 				// TODO On Click adds buttons and stuff ;)
 				/**
 				 * Handle clicks on items in the font list.
@@ -5768,34 +6058,34 @@
 				 * @param {object} el Element that received the event.
 				 */
 				click: function (e, el) {
-					var $li = $(el),
+					var $li = jQuery(el),
 						self = this,
 						fontType = $li.data("font-type"),
 						fontFamily = $li.data("font-family"),
 						italic = $li.data("font-italic") || false,
 						weight = $li.data("font-weight") || 400,
-						$lis = $(
+						$lis = jQuery(
 							"li[data-font-family='" + fontFamily + "']",
 							this.$results
 						),
 						favorites = __cookie("favs"),
 						favoriteFonts = favorites ? favorites.split(",") : [];
 
-					$("li.fp-active", this.$results)
+					jQuery("li.fp-active", this.$results)
 						.removeClass("fp-active")
 						.find(".fp-variants,.fp-btns")
 						.remove();
 
 					$li.addClass("fp-active");
 
-					var $btns = $('<div class="fp-btns">'),
+					var $btns = jQuery('<div class="fp-btns">'),
 						isFav =
 							favoriteFonts.indexOf(
 								fontType + ":" + fontFamily
 							) != -1;
 
 					$btns.append(
-						$(
+						jQuery(
 							'<span class="fp-favorite' +
 								(isFav ? " checked" : "") +
 								'"></span>'
@@ -5805,7 +6095,7 @@
 							var idx = favoriteFonts.indexOf(
 								fontType + ":" + fontFamily
 							);
-							if ($(this).is(".checked")) {
+							if (jQuery(this).is(".checked")) {
 								// Remove from favorites
 								if (idx != -1) {
 									favoriteFonts.splice(idx, 1);
@@ -5818,11 +6108,11 @@
 									);
 								}
 							}
-							$(this).toggleClass("checked");
+							jQuery(this).toggleClass("checked");
 							__cookie("favs", favoriteFonts.join(","));
 						}),
 
-						$('<button type="button" class="fp-btn apply">')
+						jQuery('<button type="button" class="fp-btn apply">')
 							.html(this.dictionary["select"])
 							.on("click", function (e) {
 								e.stopPropagation();
@@ -5884,13 +6174,14 @@
 					);
 					$btns.appendTo($li);
 
+					// TODO FONT VARIABLE
 					var font = this.allFonts[fontType][fontFamily],
 						variants = font.variants
 							? font.variants.split(",")
 							: [];
 
 					if (this.options.variants && variants.length > 1) {
-						var $variants = $('<div class="fp-variants">'),
+						var $variants = jQuery('<div class="fp-variants">'),
 							hasItalic = false;
 
 						for (var v = 0; v < variants.length; v++) {
@@ -5906,7 +6197,7 @@
 
 							v > 0 && $variants.append(" "); // Separate by space
 
-							$(
+							jQuery(
 								'<span data-font-weight="' +
 									fontWeight +
 									'" class="fp-pill weight' +
@@ -5921,23 +6212,24 @@
 										variants.indexOf(fontWeight + "i") == -1
 									) {
 										// This font weight does not have an italic variant
-										$(".fp-pill.italic", $li)
+										jQuery(".fp-pill.italic", $li)
 											.removeClass("checked")
 											.css("display", "none");
 										italic = false;
 										$li.data("font-italic", italic);
 									} else {
 										// This font weight does have an italic variant
-										$(".fp-pill.italic", $li).css(
+										jQuery(".fp-pill.italic", $li).css(
 											"display",
 											""
 										);
 									}
 
-									$("span.fp-pill.weight", $li).removeClass(
-										"checked"
-									);
-									$(this).addClass("checked");
+									jQuery(
+										"span.fp-pill.weight",
+										$li
+									).removeClass("checked");
+									jQuery(this).addClass("checked");
 
 									$lis.data("font-weight", fontWeight); // Set for favorite and normal
 
@@ -5948,7 +6240,7 @@
 
 						if (hasItalic) {
 							$variants.append(" ");
-							$(
+							jQuery(
 								'<span class="fp-pill italic ' +
 									(italic ? " checked" : "") +
 									'">'
@@ -5963,7 +6255,7 @@
 								.on("click", function (e) {
 									e.stopPropagation();
 									italic = !italic;
-									$(this).toggleClass("checked");
+									jQuery(this).toggleClass("checked");
 
 									$lis.data("font-italic", italic); // Set for favorite and normal
 
@@ -6068,7 +6360,7 @@
 							"dblclick",
 							"li:not(.fp-divider):visible",
 							function (e) {
-								$("li.fp-active", this.$results)
+								jQuery("li.fp-active", this.$results)
 									.find("button.apply")
 									.trigger("click");
 							}
@@ -6094,22 +6386,41 @@
 						[].forEach.call(lis, function (li) {
 							if (li.intersectionRatio > 0) {
 								observer.unobserve(li.target); // Load only once per li
-								$li = $(li.target);
+								$li = jQuery(li.target);
 								self.loadFont(
 									$li.data("font-type"),
 									$li.data("font-family")
 								);
-								$li.css(
-									"fontFamily",
-									"'" + $li.data("font-family") + "'"
-								);
+								// .css( propertyName, value )
+
+								// Übergebe den  $li.data("font-family") - zb Bebas Neue Pro
+								// erhalte bebas-neue-pro (Font Family Name)
+								// so we can construct font-family: bebas-neue-pro
+
+								/*                 $li.css("fontFamily", "'" + $li.data("font-family") + "'"); */
+
+								if ($li.data("font-type") == "google") {
+									$li.css(
+										"fontFamily",
+										"'" + $li.data("font-family") + "'"
+									);
+								}
+
+								/*                 if ($li.data("font-type" == "adobe")) {
+									 // nur für adobe
+									 let fontname = GetAdobeCssName($li.data("font-family"));
+									 console.log("GetAdobeCssName:", fontname);
+									 $li.css("fontFamily", "'" + fontname + "'");
+								 } */
 							}
 						});
 					});
 
-					$("li:not(.fp-divider)", this.$results).each(function () {
-						observer.observe(this);
-					});
+					jQuery("li:not(.fp-divider)", this.$results).each(
+						function () {
+							observer.observe(this);
+						}
+					);
 				},
 
 				/**
@@ -6124,24 +6435,26 @@
 
 					if ("hide" == state) {
 						// Hide modal
-						$(".fp-fav,.fp-variants,.fp-btns").remove();
+						jQuery(".fp-fav,.fp-variants,.fp-btns").remove();
 
 						this.$modal.css("display", "none");
-						$(".fp-modal-backdrop", this.$element).remove();
-						$(this.options.parentElement).removeClass(
+						jQuery(".fp-modal-backdrop", this.$element).remove();
+						jQuery(this.options.parentElement).removeClass(
 							"fp-modal-open"
 						);
-						$("span", this.$select).focus();
+						jQuery("span", this.$select).focus();
 					} else {
 						// Show modal
-						$(this.options.parentElement).addClass("fp-modal-open");
+						jQuery(this.options.parentElement).addClass(
+							"fp-modal-open"
+						);
 
 						this.$element.append(
-							$('<div class="fp-modal-backdrop">').on(
+							jQuery('<div class="fp-modal-backdrop">').on(
 								"click",
 								function () {
 									// Click outside modal window closes the modal
-									$(".fp-close", this.$modal).trigger(
+									jQuery(".fp-close", this.$modal).trigger(
 										"click"
 									);
 								}
@@ -6153,10 +6466,11 @@
 						// TODO DISABLED FAVOURITES
 						//this.getFavorites(); // List favorites & recents
 
+						// TODO
 						var fontSpec = this.$original.val();
 						if (fontSpec) {
 							var font = this.fontSpecToComponents(fontSpec),
-								$li = $(
+								$li = jQuery(
 									"li[data-font-family='" +
 										font.family +
 										"']",
@@ -6190,9 +6504,9 @@
 						searchTerm = this.$search.val().trim(),
 						cats = [];
 
-					$(".fp-category", this.$filter).each(function () {
-						if ($(this).hasClass("checked")) {
-							cats.push($(this).data("category"));
+					jQuery(".fp-category", this.$filter).each(function () {
+						if (jQuery(this).hasClass("checked")) {
+							cats.push(jQuery(this).data("category"));
 						}
 					});
 
@@ -6206,7 +6520,7 @@
 								langs = item.subsets
 									? item.subsets.split(",")
 									: [],
-								$li = $(
+								$li = jQuery(
 									"li[data-font-family='" + f + "']",
 									this.$results
 								),
@@ -6234,12 +6548,12 @@
 				 */
 				getFilterUI: function () {
 					var self = this,
-						$searchWrap = $('<div class="fp-search-wrap">');
+						$searchWrap = jQuery('<div class="fp-search-wrap">');
 
-					this.$filter = $('<div class="fp-filter">');
+					this.$filter = jQuery('<div class="fp-filter">');
 
 					// Search input
-					this.$search = $("<input>", {
+					this.$search = jQuery("<input>", {
 						class: "fp-search",
 						type: "text",
 						placeholder: this.dictionary["search"],
@@ -6251,7 +6565,7 @@
 						.appendTo($searchWrap);
 
 					// Clear button
-					$('<div class="fp-clear">')
+					jQuery('<div class="fp-clear">')
 						.on("click", function () {
 							self.$search.val("").focus();
 							self.applyFilter();
@@ -6273,29 +6587,29 @@
 								"</option>"
 						);
 					}
-					this.$lang = $('<select class="fp-lang">')
+					this.$lang = jQuery('<select class="fp-lang">')
 						.on("change", function () {
 							self.applyFilter();
 						})
 						.html(opts.join(""));
 
 					this.$filter.append(
-						$('<div class="fp-row">').append(
+						jQuery('<div class="fp-row">').append(
 							$searchWrap,
 							this.$lang
 						)
 					);
 
-					$('<div class="hr">').appendTo(this.$filter);
+					jQuery('<div class="hr">').appendTo(this.$filter);
 
 					var gFontCats = googleFontCats.slice(0); // Clone
 					gFontCats.push("other");
 					for (var g = 0; g < gFontCats.length; g++) {
-						$('<span class="fp-category fp-pill checked">')
+						jQuery('<span class="fp-category fp-pill checked">')
 							.data("category", gFontCats[g])
 							.text(gFontCats[g])
 							.on("click", function () {
-								$(this).toggleClass("checked");
+								jQuery(this).toggleClass("checked");
 								self.applyFilter();
 							})
 							.appendTo(this.$filter);
@@ -6307,15 +6621,15 @@
 				 */
 				getFontsList: function () {
 					var self = this,
-						$frag = $(document.createDocumentFragment()), // Use a document fragment to increase performance
+						$frag = jQuery(document.createDocumentFragment()), // Use a document fragment to increase performance
 						$li,
 						fontFamily;
 
 					// TODO handles adding list items
 
 					/* 
-					<li data-font-type="google" data-font-family="Abel" class="" style="font-family: Abel;">Abel <small>sans-serif</small></li>
-					*/
+					 <li data-font-type="google" data-font-family="Abel" class="" style="font-family: Abel;">Abel <small>sans-serif</small></li>
+					 */
 					function append(fontType, fontFamily) {
 						var font = self.allFonts[fontType][fontFamily],
 							small = "";
@@ -6339,43 +6653,46 @@
 							small = " <small>" + items.join(", ") + "</small>";
 						}
 
-						$li = $("<li>", {
+						$li = jQuery("<li>", {
 							"data-font-type": fontType,
 							"data-font-family": fontFamily,
 						}).html(fontFamily + small);
 
+						//console.log("LIST ITEM", $li);
 						$frag.append($li[0]);
 					}
 
 					/*           // Local fonts
-          if (objLength(this.options.localFonts) > 0) {
-            $li = $(
-              '<li class="fp-divider">' +
-                this.dictionary["localFonts"] +
-                "</li>"
-            );
-            $frag.append($li[0]);
-            for (fontFamily in this.options.localFonts) {
-              append("local", fontFamily);
-            }
-          } */
+					 if (objLength(this.options.localFonts) > 0) {
+						 $li = jQuery(
+							 '<li class="fp-divider">' +
+								 this.dictionary["localFonts"] +
+								 "</li>"
+						 );
+						 $frag.append($li[0]);
+						 for (fontFamily in this.options.localFonts) {
+							 append("local", fontFamily);
+						 }
+					 } */
 
 					// TODO Adobe fonts
 					if (objLength(this.options.adobeFonts) > 0) {
-						$li = $(
+						$li = jQuery(
 							'<li class="fp-divider">' + "Adobe Fonts" + "</li>"
 						);
 						// TODO Fonts hinzufügen
 						$frag.append($li[0]);
+
 						for (fontFamily in this.options.adobeFonts) {
 							console.log("fontFamily:", fontFamily);
 							append("adobe", fontFamily);
+							//console.log("APPENDED", fontFamily);
 						}
 					}
 
 					// Google fonts
 					if (objLength(this.options.googleFonts) > 0) {
-						$li = $(
+						$li = jQuery(
 							'<li class="fp-divider">' +
 								this.dictionary["googleFonts"] +
 								"</li>"
@@ -6388,7 +6705,7 @@
 						}
 					}
 
-					this.$results = $("<ul>", {
+					this.$results = jQuery("<ul>", {
 						class: "fp-results",
 						tabindex: 0,
 					}).append($frag);
@@ -6417,7 +6734,7 @@
 						}
 					}
 
-					var $frag = $(document.createDocumentFragment()),
+					var $frag = jQuery(document.createDocumentFragment()),
 						$li = null,
 						$orgLi,
 						tmp,
@@ -6434,7 +6751,7 @@
 							continue;
 						}
 
-						$orgLi = $(
+						$orgLi = jQuery(
 							"[data-font-family='" + fontFamily + "']",
 							this.$results
 						);
@@ -6446,7 +6763,7 @@
 
 					if (null !== $li) {
 						$frag.prepend(
-							$(
+							jQuery(
 								'<li class="fp-fav fp-divider">' +
 									this.dictionary["favFonts"] +
 									"</li>"
@@ -6465,7 +6782,7 @@
 
 					this.$original.hide();
 
-					this.$select = $('<div class="font-picker fp-select">')
+					this.$select = jQuery('<div class="font-picker fp-select">')
 						.on("click", function () {
 							self.toggleModal("show");
 						})
@@ -6488,7 +6805,7 @@
 					if (!!self.options.showClear) {
 						// Add a clear button
 						self.$select.append(
-							$('<span class="fp-clear"></span>').on(
+							jQuery('<span class="fp-clear"></span>').on(
 								"click",
 								function (e) {
 									e.stopPropagation();
@@ -6506,30 +6823,29 @@
 
 					this.$original.after(this.$select);
 
-					this.$element = $("<div>", { class: "font-picker" });
+					this.$element = jQuery("<div>", { class: "font-picker" });
 
-					this.$modal = $('<div class="fp-modal">').appendTo(
+					this.$modal = jQuery('<div class="fp-modal">').appendTo(
 						this.$element
 					);
 
 					this.$modal.append(
-						$('<div class="fp-header">').append(
-							$('<div class="fp-icons">').append(
-								$('<span class="fp-close">&times</span>').on(
-									"click",
-									function () {
-										self.toggleModal("hide");
-									}
-								)
+						jQuery('<div class="fp-header">').append(
+							jQuery('<div class="fp-icons">').append(
+								jQuery(
+									'<span class="fp-close">&times</span>'
+								).on("click", function () {
+									self.toggleModal("hide");
+								})
 							),
-							$("<h5>").text(this.dictionary["selectFont"])
+							jQuery("<h5>").text(this.dictionary["selectFont"])
 						)
 					);
 
 					this.getFilterUI();
 					this.$modal.append(this.$filter);
 
-					this.$sample = $("<div>", {
+					this.$sample = jQuery("<div>", {
 						class: "fp-sample",
 						contenteditable: true,
 						spellcheck: false,
@@ -6550,11 +6866,14 @@
 
 					if (cats) {
 						cats = cats.split(",");
-						$(".fp-category", this.$filter).each(function () {
-							if (-1 == cats.indexOf($(this).data("category"))) {
-								$(this).removeClass("checked");
+						jQuery(".fp-category", this.$filter).each(function () {
+							if (
+								-1 ==
+								cats.indexOf(jQuery(this).data("category"))
+							) {
+								jQuery(this).removeClass("checked");
 							} else {
-								$(this).addClass("checked");
+								jQuery(this).addClass("checked");
 							}
 						});
 					}
@@ -6565,7 +6884,7 @@
 
 					fontSpec && self.applyFontToOriginalInput(fontSpec);
 
-					$(this.options.parentElement).append(this.$element);
+					jQuery(this.options.parentElement).append(this.$element);
 				},
 
 				//
@@ -6576,7 +6895,7 @@
 				 * Show the fontpicker.
 				 */
 				show: function () {
-					var el = $(this).data("plugin_" + pluginName);
+					var el = jQuery(this).data("plugin_" + pluginName);
 					if (!el.$select) {
 						throw new Error(
 							"jquery." +
@@ -6591,7 +6910,7 @@
 				 * Hide the fontpicker.
 				 */
 				hide: function () {
-					var el = $(this).data("plugin_" + pluginName);
+					var el = jQuery(this).data("plugin_" + pluginName);
 					if (!el.$select) {
 						throw new Error(
 							"jquery." +
@@ -6606,7 +6925,7 @@
 				 * Destroy the fontpicker plugin, revert element back to original.
 				 */
 				destroy: function () {
-					var el = $(this).data("plugin_" + pluginName);
+					var el = jQuery(this).data("plugin_" + pluginName);
 					if (!el.$select) {
 						throw new Error(
 							"jquery." +
@@ -6620,7 +6939,7 @@
 					el.$original.off("setFont");
 					el.$original.show();
 					el.$select = el.$element = el.$original = el.$modal = null;
-					$(el).removeData("plugin_" + pluginName);
+					jQuery(el).removeData("plugin_" + pluginName);
 				},
 			}; // End prototype
 
@@ -6670,4 +6989,4 @@
 			}
 		});
 	};
-})(jQuery);
+})(jQuery.noConflict());
